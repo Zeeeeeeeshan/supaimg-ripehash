@@ -70,21 +70,24 @@ const Pricing = () => {
           {plans.map((plan, index) => (
             <div
               key={index}
-              className={`relative bg-white border-2 p-8 ${
+              className={`relative group bg-white/70 backdrop-blur-lg border-2 p-8 rounded-2xl shadow-lg overflow-visible hover:scale-105 transition-transform duration-200 ${
                 plan.popular
-                  ? 'border-blue-600 shadow-lg'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-blue-600 shadow-xl'
+                  : 'border-gray-200'
               }`}
+              style={{ cursor: 'pointer' }}
             >
-              {plan.popular && (
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-blue-600 text-white px-4 py-2 text-sm font-medium">
-                    Most Popular
-                  </span>
-                </div>
-              )}
-
               <div className="text-center mb-8">
+                {plan.popular && (
+                  <div className="flex justify-center mb-3">
+                    <span
+                      className="text-white px-4 py-2 text-sm font-medium rounded shadow-lg border-2 border-white z-20"
+                      style={{ backgroundColor: '#2563eb' }}
+                    >
+                      Most Popular
+                    </span>
+                  </div>
+                )}
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
                 <div className="mb-4">
                   <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
@@ -96,21 +99,25 @@ const Pricing = () => {
               <ul className="space-y-4 mb-8">
                 {plan.features.map((feature, idx) => (
                   <li key={idx} className="flex items-center">
-                    <Check className="h-5 w-5 text-green-500 mr-3 flex-shrink-0" />
+                    <span className="flex-shrink-0">
+                      <Check className="h-5 w-5 text-green-500 mr-3" />
+                    </span>
                     <span className="text-gray-700">{feature}</span>
                   </li>
                 ))}
               </ul>
 
               <button
-                className={`w-full py-3 px-6 font-semibold flex items-center justify-center ${
+                className={`w-full py-3 px-6 font-semibold flex items-center justify-center rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 active:scale-95 ${
                   plan.popular
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'border-2 border-gray-300 text-gray-700 hover:border-gray-400'
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg'
+                    : 'border-2 border-gray-300 text-gray-700 hover:border-blue-400 bg-white'
                 }`}
               >
                 {plan.cta}
-                <ArrowRight className="ml-2 h-4 w-4" />
+                <span className="ml-2">
+                  <ArrowRight className="h-4 w-4" />
+                </span>
               </button>
             </div>
           ))}

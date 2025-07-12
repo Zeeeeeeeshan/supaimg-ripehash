@@ -72,27 +72,26 @@ const Footer = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 lg:grid-cols-6 gap-8">
             {/* Logo and description */}
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 pl-5">
               <div className="flex items-center mb-6">
                 <img src="/logo copy.png" alt="Supaimg" className="h-8 w-8" />
-                <span className="ml-2 text-xl font-bold">Supaimg</span>
+                <span className="ml-2 text-xl font-bold text-white">Supaimg</span>
               </div>
               <p className="text-gray-400 mb-6 leading-relaxed">
                 The simplest way to upload, share, and manage images. 
                 Built for developers, loved by everyone.
               </p>
-              <div className="relative overflow-hidden bg-gradient-to-r from-gray-800 to-gray-700 p-6 border border-gray-600">
-                <div className="flex items-center space-x-4 ripehash-container">
+              {/* Change the RipeHash box to have a plain background (no gradients, no colored overlays) */}
+              <div className="relative bg-gray-800 p-6 border border-gray-600">
+                <div className="flex flex-col items-center space-y-2 ripehash-container">
                   <div className="relative">
-                    <img src="/Group 2201.png" alt="Ripe Hash" className="h-12 w-auto ripehash-logo" />
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20"></div>
+                    <img src="/RipeHassh.png" alt="Ripe Hash" className="h-12 w-auto ripehash-logo" />
                   </div>
-                  <div>
+                  <div className="text-center">
                     <p className="text-white font-semibold text-lg">A Ripe Hash Product</p>
                     <p className="text-gray-300 text-sm">Building the future of digital solutions</p>
                   </div>
                 </div>
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-pink-500 to-red-600"></div>
                 <a 
                   href="https://www.ripehash.com" 
                   target="_blank" 

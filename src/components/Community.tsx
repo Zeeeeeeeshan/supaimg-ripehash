@@ -1,5 +1,6 @@
 import React from 'react';
 import { MessageCircle, Users, Star, ArrowRight, Github, Twitter } from 'lucide-react';
+// Remove framer-motion import
 
 const Community = () => {
   const stats = [

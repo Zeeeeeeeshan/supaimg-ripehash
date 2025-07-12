@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
-import { Menu, X, ChevronDown, Search } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Menu, X, ChevronDown, Search, LayoutDashboard, LogIn } from 'lucide-react';
+import { signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
+import { auth } from '../firebase';
 
 interface NavbarProps {
   onDashboard: () => void;
@@ -8,6 +11,24 @@ interface NavbarProps {
 const Navbar = ({ onDashboard }: NavbarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [user, setUser] = useState<User | null>(null);
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (searchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchOpen]);
 
   const productItems = [
     { name: 'Image Upload', desc: 'Instant image hosting with CDN' },
@@ -23,26 +44,30 @@ const Navbar = ({ onDashboard }: NavbarProps) => {
     { name: 'Enterprise', desc: 'Scale with confidence' }
   ];
 
+  const handleLogout = async () => {
+    await signOut(auth);
+  };
+
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <nav className="bg-blue-50 border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div className="flex items-center">
-            <img src="/logo copy.png" alt="Supaimg" className="h-8 w-8 mr-3" />
-            <span className="text-xl font-bold text-gray-900">Supaimg</span>
+          <div className={`flex items-center ${searchOpen ? 'w-32' : 'w-48'}`}> 
+            <img src="/logo copy.png" alt="Supaimg" className="h-8 w-10 m-0 p-0" />
+            <span className="text-xl font-bold whitespace-nowrap -ml-2 supaimg-gradient">Supaimg</span>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center space-x-8">
+          <div className={`hidden lg:flex items-center space-x-8 ${searchOpen ? 'scale-90 opacity-70' : 'scale-100 opacity-100'}`}>
             <div className="relative group">
               <button 
-                className="flex items-center text-gray-700 hover:text-blue-600 font-medium py-2"
+                className="flex items-center text-gray-700 font-medium py-2 relative hover:text-blue-600 focus:outline-none"
                 onMouseEnter={() => setActiveDropdown('products')}
                 onMouseLeave={() => setActiveDropdown(null)}
               >
-                Products
-                <ChevronDown className="ml-1 h-4 w-4" />
+                <span className="relative after:absolute after:left-0 after:-bottom-1 after:w-0 after:h-0.5 after:bg-blue-600 after:transition-all after:duration-300 group-hover:after:w-full group-hover:after:h-0.5">Products</span>
+                <ChevronDown className="ml-1 h-4 w-4 transition-transform duration-300 group-hover:rotate-180" />
               </button>
               {activeDropdown === 'products' && (
                 <div 
@@ -53,7 +78,7 @@ const Navbar = ({ onDashboard }: NavbarProps) => {
                   <div className="p-6">
                     <div className="grid gap-4">
                       {productItems.map((item) => (
-                        <a key={item.name} href="#" className="block p-3 hover:bg-gray-50 transition-colors">
+                        <a key={item.name} href="#" className="block p-3 hover:bg-gray-50 transition-colors duration-300">
                           <div className="font-medium text-gray-900">{item.name}</div>
                           <div className="text-sm text-gray-500">{item.desc}</div>
                         </a>
@@ -66,12 +91,12 @@ const Navbar = ({ onDashboard }: NavbarProps) => {
 
             <div className="relative group">
               <button 
-                className="flex items-center text-gray-700 hover:text-blue-600 font-medium py-2"
+                className="flex items-center text-gray-700 font-medium py-2 relative hover:text-blue-600 focus:outline-none"
                 onMouseEnter={() => setActiveDropdown('solutions')}
                 onMouseLeave={() => setActiveDropdown(null)}
               >
-                Solutions
-                <ChevronDown className="ml-1 h-4 w-4" />
+                <span className="relative after:absolute after:left-0 after:-bottom-1 after:w-0 after:h-0.5 after:bg-blue-600 after:transition-all after:duration-300 group-hover:after:w-full group-hover:after:h-0.5">Solutions</span>
+                <ChevronDown className="ml-1 h-4 w-4 transition-transform duration-300 group-hover:rotate-180" />
               </button>
               {activeDropdown === 'solutions' && (
                 <div 
@@ -82,7 +107,7 @@ const Navbar = ({ onDashboard }: NavbarProps) => {
                   <div className="p-6">
                     <div className="grid gap-4">
                       {solutionItems.map((item) => (
-                        <a key={item.name} href="#" className="block p-3 hover:bg-gray-50 transition-colors">
+                        <a key={item.name} href="#" className="block p-3 hover:bg-gray-50 transition-colors duration-300">
                           <div className="font-medium text-gray-900">{item.name}</div>
                           <div className="text-sm text-gray-500">{item.desc}</div>
                         </a>
@@ -93,31 +118,61 @@ const Navbar = ({ onDashboard }: NavbarProps) => {
               )}
             </div>
 
-            <a href="#pricing" className="text-gray-700 hover:text-blue-600 font-medium py-2">Pricing</a>
-            <a href="#docs" className="text-gray-700 hover:text-blue-600 font-medium py-2">Docs</a>
-            <a href="#community" className="text-gray-700 hover:text-blue-600 font-medium py-2">Community</a>
+            <a href="#pricing" className="text-gray-700 font-medium py-2 relative hover:text-blue-600 after:absolute after:left-0 after:-bottom-1 after:w-0 after:h-0.5 after:bg-blue-600 after:transition-all after:duration-300 hover:after:w-full hover:after:h-0.5">Pricing</a>
+            <a href="#docs" className="text-gray-700 font-medium py-2 relative hover:text-blue-600 after:absolute after:left-0 after:-bottom-1 after:w-0 after:h-0.5 after:bg-blue-600 after:transition-all after:duration-300 hover:after:w-full hover:after:h-0.5">Docs</a>
+            <a href="#community" className="text-gray-700 font-medium py-2 relative hover:text-blue-600 after:absolute after:left-0 after:-bottom-1 after:w-0 after:h-0.5 after:bg-blue-600 after:transition-all after:duration-300 hover:after:w-full hover:after:h-0.5">Community</a>
           </div>
 
           {/* Right side */}
-          <div className="hidden lg:flex items-center space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="pl-10 pr-4 py-2 border border-gray-300 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
-              />
+          <div className="hidden lg:flex items-center space-x-2">
+            {/* Search Icon & Bar */}
+            <div className="relative flex items-center -ml-5">
+              {!searchOpen && (
+                <button
+                  className="p-2 hover:bg-gray-100 rounded-full transition"
+                  onClick={() => setSearchOpen(true)}
+                  aria-label="Open search"
+                >
+                  <Search className="h-5 w-5 text-gray-500" />
+                </button>
+              )}
+              {searchOpen && (
+                <div className="flex items-center">
+                  <Search className="absolute left-3 h-4 w-4 text-gray-400" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    className="pl-10 pr-4 py-2 border border-gray-300 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-48 rounded"
+                    onBlur={() => setSearchOpen(false)}
+                  />
+                </div>
+              )}
             </div>
-            <button className="text-gray-700 hover:text-blue-600 font-medium px-4 py-2">Log in</button>
             <button 
               onClick={onDashboard}
-              className="bg-blue-600 text-white px-4 py-2 hover:bg-blue-700 font-medium transition-colors"
+              className={`flex items-center text-white bg-blue-600 hover:bg-blue-700 font-medium px-4 py-2 rounded-md ${searchOpen ? 'px-2 text-sm' : ''}`}
             >
-              Dashboard
+              <LayoutDashboard className="h-4 w-4 mr-2" /> Dashboard
             </button>
-            <button className="bg-green-600 text-white px-4 py-2 hover:bg-green-700 font-medium transition-colors">
-              Sign up
+            {/* Replace Log in button with user avatar or login button */}
+            {user ? (
+              <div className="relative">
+                <button
+                  className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 bg-white font-semibold text-blue-700 text-base"
+                  onClick={handleLogout}
+                  title={user.email || ''}
+                >
+                  {user.email?.[0]?.toUpperCase() || 'U'}
+                </button>
+              </div>
+            ) : (
+              <button
+                className={`flex items-center text-white bg-green-600 hover:bg-green-700 font-medium px-4 py-2 rounded-md ${searchOpen ? 'px-2 text-sm' : ''}`}
+                onClick={() => navigate('/login')}
+              >
+              <LogIn className="h-4 w-4 mr-2" /> Log in
             </button>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -141,15 +196,14 @@ const Navbar = ({ onDashboard }: NavbarProps) => {
               <a href="#docs" className="block px-3 py-2 text-gray-700 hover:text-blue-600 font-medium">Docs</a>
               <a href="#community" className="block px-3 py-2 text-gray-700 hover:text-blue-600 font-medium">Community</a>
               <div className="border-t border-gray-200 pt-4 mt-4">
-                <a href="#" className="block px-3 py-2 text-gray-700 hover:text-blue-600 font-medium">Log in</a>
                 <button 
                   onClick={onDashboard}
-                  className="block w-full text-left px-3 py-2 text-blue-600 hover:text-blue-700 font-medium"
+                  className="flex items-center w-full text-left px-3 py-2 text-gray-700 hover:text-blue-600 font-medium"
                 >
-                  Dashboard
+                  <LayoutDashboard className="h-4 w-4 mr-2" /> Dashboard
                 </button>
-                <button className="block w-full text-left px-3 py-2 text-green-600 hover:text-green-700 font-medium">
-                  Sign up
+                <button className="flex items-center w-full text-left px-3 py-2 text-gray-700 hover:text-blue-600 font-medium">
+                  <LogIn className="h-4 w-4 mr-2" /> Log in
                 </button>
               </div>
             </div>
