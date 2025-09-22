@@ -1,16 +1,12 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-interface LoginProps {
-  onLogin?: () => void;
-}
-
-const Login = ({ onLogin }: LoginProps) => {
+const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState(null);
+  const [message, setMessage] = useState(null);
 
   const handleGoogleSignIn = async () => {
     try {
@@ -20,7 +16,7 @@ const Login = ({ onLogin }: LoginProps) => {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider: 'google' });
       if (oauthError) throw oauthError;
       // On success, Supabase will redirect to its callback URL; after returning you can consider user logged in.
-    } catch (err: any) {
+    } catch (err) {
       setError(err?.message || 'Google sign-in failed.');
     } finally {
       // keep loading until redirect happens; if no redirect configured, stop loading
@@ -28,7 +24,7 @@ const Login = ({ onLogin }: LoginProps) => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setMessage(null);
@@ -62,8 +58,8 @@ const Login = ({ onLogin }: LoginProps) => {
 
       // Any other error
       throw signUpError;
-    } catch (err: any) {
-      const msg: string = err?.message || 'Authentication failed.';
+    } catch (err) {
+      const msg = err?.message || 'Authentication failed.';
       // Friendlier errors for common cases
       if (/password/.test(msg) && /weak|short|least/i.test(msg)) {
         setError('Password is too weak. Please use at least 8 characters.');

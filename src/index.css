@@ -20,6 +20,48 @@
   border-radius: 0 !important;
 }
 
+/* Scoped rounded corners for auth screens (e.g., Login) */
+/* Wrap the auth page in a container with class `auth-rounded` */
+.auth-rounded input,
+.auth-rounded select,
+.auth-rounded textarea,
+.auth-rounded button,
+.auth-rounded .auth-card,
+.auth-rounded .auth-pill {
+  border-radius: 12px !important; /* Matches curved design in mockups */
+}
+
+/* Specific larger radius for primary CTA if needed */
+.auth-rounded .auth-cta {
+  border-radius: 9999px !important; /* Fully pill-shaped button */
+}
+
+/* Scoped rounded corners for Dashboard UI */
+.dashboard-rounded .rounded,
+.dashboard-rounded .rounded-sm,
+.dashboard-rounded .rounded-md,
+.dashboard-rounded .rounded-lg,
+.dashboard-rounded .rounded-xl,
+.dashboard-rounded .rounded-2xl,
+.dashboard-rounded input,
+.dashboard-rounded button,
+.dashboard-rounded img.rounded,
+.dashboard-rounded .card,
+.dashboard-rounded .box,
+.dashboard-rounded .chip {
+  border-radius: 12px !important;
+}
+
+/* Allow fully rounded pills within dashboard when needed */
+.dashboard-rounded .dashboard-pill {
+  border-radius: 9999px !important;
+}
+
+/* Helper: force fully-rounded corners anywhere (overrides global reset) */
+.rounded-pill {
+  border-radius: 9999px !important;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
