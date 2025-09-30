@@ -6,18 +6,127 @@
   * {
     scroll-behavior: smooth;
   }
+
+/* ===== Pro animation utilities ===== */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeInUp {
+  animation: fadeInUp .5s cubic-bezier(0.2,0.8,0.2,1) both;
+}
+
+/* Stagger helpers */
+.anim-delay-0 { animation-delay: 0s !important; }
+.anim-delay-1 { animation-delay: .06s !important; }
+.anim-delay-2 { animation-delay: .12s !important; }
+.anim-delay-3 { animation-delay: .18s !important; }
+.anim-delay-4 { animation-delay: .24s !important; }
+.anim-delay-5 { animation-delay: .30s !important; }
+
+/* Hover lift/tilt */
+.hover-lift-md { transition: transform .25s ease, box-shadow .25s ease; }
+.hover-lift-md:hover { transform: translateY(-4px) scale(1.01); box-shadow: 0 10px 24px rgba(0,0,0,.08); }
+
+.hover-tilt-sm { transition: transform .25s ease, box-shadow .25s ease; transform-style: preserve-3d; }
+.hover-tilt-sm:hover { transform: perspective(800px) rotateX(2deg) rotateY(-2deg) translateY(-2px); box-shadow: 0 12px 28px rgba(0,0,0,.10); }
+
+.hover-glow {
+  transition: box-shadow .25s ease;
+}
+.hover-glow:hover {
+  box-shadow: 0 0 0 1px rgba(59,130,246,.25), 0 10px 24px rgba(59,130,246,.12);
+}
   
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
     background: #ffffff;
-    color: #111827;
     line-height: 1.6;
+  }
+
+  /* Global dark mode: black surfaces with white text */
+  .dark body {
+    background: #000000;
+    color: #ffffff;
+  }
+
+  /* Theme switch animation */
+  html.theme-switching body, html.theme-switching * {
+    transition: none !important; /* prevent double transitions */
+  }
+  html.theme-switching body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    pointer-events: none;
+    animation: themeFade 320ms ease both;
+  }
+  @keyframes themeFade {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
   }
 }
 
 /* Remove all rounded corners globally */
 * {
   border-radius: 0 !important;
+}
+
+/* Scoped rounded corners for auth screens (e.g., Login) */
+/* Wrap the auth page in a container with class `auth-rounded` */
+.auth-rounded input,
+.auth-rounded select,
+.auth-rounded textarea,
+.auth-rounded button,
+.auth-rounded .auth-card,
+.auth-rounded .auth-pill {
+  border-radius: 12px !important; /* Matches curved design in mockups */
+}
+
+/* Specific larger radius for primary CTA if needed */
+.auth-rounded .auth-cta {
+  border-radius: 9999px !important; /* Fully pill-shaped button */
+}
+
+/* Scoped rounded corners for Dashboard UI */
+.dashboard-rounded .rounded,
+.dashboard-rounded .rounded-sm,
+.dashboard-rounded .rounded-md,
+.dashboard-rounded .rounded-lg,
+.dashboard-rounded .rounded-xl,
+.dashboard-rounded .rounded-2xl,
+.dashboard-rounded input,
+.dashboard-rounded button,
+.dashboard-rounded img.rounded,
+.dashboard-rounded .card,
+.dashboard-rounded .box,
+.dashboard-rounded .chip {
+  border-radius: 12px !important;
+}
+
+/* Allow fully rounded pills within dashboard when needed */
+.dashboard-rounded .dashboard-pill {
+  border-radius: 9999px !important;
+}
+
+/* Scoped rounded corners for Intro/Splash screen */
+.intro-rounded .rounded,
+.intro-rounded .rounded-sm,
+.intro-rounded .rounded-md,
+.intro-rounded .rounded-lg,
+.intro-rounded .rounded-xl,
+.intro-rounded .rounded-2xl,
+.intro-rounded input,
+.intro-rounded button,
+.intro-rounded .intro-card {
+  border-radius: 12px !important;
+}
+
+/* Helper: force fully-rounded corners anywhere (overrides global reset) */
+.rounded-pill {
+  border-radius: 9999px !important;
 }
 
 /* Custom scrollbar */
@@ -44,6 +153,42 @@
   transition-duration: 200ms;
 }
 
+/* Global dark-mode overrides (safe fallbacks) */
+.dark .bg-white,
+.dark .bg-gray-50,
+.dark .bg-gray-100,
+.dark .bg-gray-200,
+.dark .bg-gray-800,
+.dark .bg-gray-900 {
+  background-color: #000000 !important;
+}
+
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-gray-600,
+.dark .text-gray-500,
+.dark .text-gray-400 {
+  color: #ffffff !important;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.dark ::placeholder {
+  color: #cbd5e1 !important;
+}
+
+.dark .border,
+.dark [class*="border-"] {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
 /* Loading animation */
 @keyframes pulse {
   0%, 100% {
@@ -58,11 +203,17 @@
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Focus states */
+/* Focus states (no blue) */
 button:focus,
 input:focus,
 select:focus {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid #1f2937; /* neutral gray for light */
+  outline-offset: 2px;
+}
+.dark button:focus,
+.dark input:focus,
+.dark select:focus {
+  outline: 2px solid rgba(255,255,255,0.6); /* white for dark */
   outline-offset: 2px;
 }
 

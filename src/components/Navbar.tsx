@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Menu, X, ChevronDown, Search, LayoutDashboard, LogIn } from 'lucide-react';
-import { signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '../firebase';
+
 
 interface NavbarProps {
   onDashboard: () => void;
@@ -13,16 +12,9 @@ const Navbar = ({ onDashboard }: NavbarProps) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [user, setUser] = useState<User | null>(null);
+  // Supabase-only app: we do not track Firebase user state here
 
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
-    });
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     if (searchOpen && searchInputRef.current) {
@@ -44,9 +36,7 @@ const Navbar = ({ onDashboard }: NavbarProps) => {
     { name: 'Enterprise', desc: 'Scale with confidence' }
   ];
 
-  const handleLogout = async () => {
-    await signOut(auth);
-  };
+  // No-op logout here since Firebase is not used in this Navbar
 
   return (
     <nav className="bg-blue-50 border-b border-gray-200 sticky top-0 z-50">
@@ -154,25 +144,13 @@ const Navbar = ({ onDashboard }: NavbarProps) => {
             >
               <LayoutDashboard className="h-4 w-4 mr-2" /> Dashboard
             </button>
-            {/* Replace Log in button with user avatar or login button */}
-            {user ? (
-              <div className="relative">
-                <button
-                  className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 bg-white font-semibold text-blue-700 text-base"
-                  onClick={handleLogout}
-                  title={user.email || ''}
-                >
-                  {user.email?.[0]?.toUpperCase() || 'U'}
-                </button>
-              </div>
-            ) : (
-              <button
-                className={`flex items-center text-white bg-green-600 hover:bg-green-700 font-medium px-4 py-2 rounded-md ${searchOpen ? 'px-2 text-sm' : ''}`}
-                onClick={() => navigate('/login')}
-              >
+            {/* Always show Log in button (Supabase auth handled on the Login page) */}
+            <button
+              className={`flex items-center text-white bg-green-600 hover:bg-green-700 font-medium px-4 py-2 rounded-md ${searchOpen ? 'px-2 text-sm' : ''}`}
+              onClick={() => navigate('/login')}
+            >
               <LogIn className="h-4 w-4 mr-2" /> Log in
             </button>
-            )}
           </div>
 
           {/* Mobile menu button */}

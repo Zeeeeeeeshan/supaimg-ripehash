@@ -1,16 +1,12 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-interface LoginProps {
-  onLogin?: () => void;
-}
-
-const Login = ({ onLogin }: LoginProps) => {
+const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState(null);
+  const [message, setMessage] = useState(null);
 
   const handleGoogleSignIn = async () => {
     try {
@@ -19,26 +15,25 @@ const Login = ({ onLogin }: LoginProps) => {
       setLoading(true);
       const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider: 'google' });
       if (oauthError) throw oauthError;
-      // On success, Supabase will redirect to its callback URL; after returning you can consider user logged in.
-    } catch (err: any) {
+    } catch (err) {
       setError(err?.message || 'Google sign-in failed.');
     } finally {
-      // keep loading until redirect happens; if no redirect configured, stop loading
+      // keep loading until redirect happens
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setMessage(null);
     setLoading(true);
     try {
-      // Register (sign up) first
+      // Register 
       const { error: signUpError } = await supabase.auth.signUp({ email, password });
       if (!signUpError) {
-        // Redirect to dashboard regardless of confirmation requirement
         try { localStorage.setItem('supaimg_email', email); } catch {}
+        try { sessionStorage.setItem('supaimg_password', password); } catch {}
         setTimeout(() => {
           onLogin?.();
         }, 600); // small delay so the skeleton is visible
@@ -53,6 +48,7 @@ const Login = ({ onLogin }: LoginProps) => {
         if (signInData.session) {
           setMessage('Signed in successfully.');
           try { localStorage.setItem('supaimg_email', email); } catch {}
+          try { sessionStorage.setItem('supaimg_password', password); } catch {}
           setTimeout(() => {
             onLogin?.();
           }, 600);
@@ -62,8 +58,8 @@ const Login = ({ onLogin }: LoginProps) => {
 
       // Any other error
       throw signUpError;
-    } catch (err: any) {
-      const msg: string = err?.message || 'Authentication failed.';
+    } catch (err) {
+      const msg = err?.message || 'Authentication failed.';
       // Friendlier errors for common cases
       if (/password/.test(msg) && /weak|short|least/i.test(msg)) {
         setError('Password is too weak. Please use at least 8 characters.');
