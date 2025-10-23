@@ -8,6 +8,30 @@ const Login = ({ onLogin }) => {
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
 
+  const ensureProfile = async (userId) => {
+    try {
+      // Check if profile exists
+      const { data: existingProfile, error: checkError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', userId)
+        .single();
+
+      // If profile doesn't exist, create it with just user_id
+      if (checkError || !existingProfile) {
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({ id: userId });
+
+        if (insertError) {
+          console.error('Error creating profile:', insertError);
+        }
+      }
+    } catch (err) {
+      console.error('Profile check/create error:', err);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     try {
       setError(null);
@@ -30,8 +54,10 @@ const Login = ({ onLogin }) => {
     setLoading(true);
     try {
       // Register 
-      const { error: signUpError } = await supabase.auth.signUp({ email, password });
-      if (!signUpError) {
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
+      if (!signUpError && signUpData.user) {
+        // Create profile with user_id
+        await ensureProfile(signUpData.user.id);
         try { localStorage.setItem('supaimg_email', email); } catch {}
         try { sessionStorage.setItem('supaimg_password', password); } catch {}
         setTimeout(() => {
@@ -45,7 +71,9 @@ const Login = ({ onLogin }) => {
       if (alreadyRegistered) {
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
-        if (signInData.session) {
+        if (signInData.session && signInData.user) {
+          // Ensure profile exists for existing user
+          await ensureProfile(signInData.user.id);
           setMessage('Signed in successfully.');
           try { localStorage.setItem('supaimg_email', email); } catch {}
           try { sessionStorage.setItem('supaimg_password', password); } catch {}

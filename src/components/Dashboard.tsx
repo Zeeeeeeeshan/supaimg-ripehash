@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, User, Home, Folder, Database, Shield, Settings, Plus, MoreVertical, ChevronRight, X, Menu, Image } from 'lucide-react';
+import { User, Home, Folder, Database, Shield, Settings, Plus, MoreVertical, ChevronRight, X, Menu, Image } from 'lucide-react';
 import Gallery from './Gallery';
 import ApiConnections from './ApiConnections';
 import Projects from './Projects';
@@ -13,7 +13,7 @@ interface DashboardProps {
 
 const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
   const [activeFilter, setActiveFilter] = useState('home');
-  const [searchQuery, setSearchQuery] = useState('');
+  
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -88,10 +88,10 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
   ];
 
   const projects = [
-    { id: 1, name: 'Project 1', color: 'bg-gray-100', icon: '📁' },
-    { id: 2, name: 'Project 2', color: 'bg-red-100', icon: '📁' },
-    { id: 3, name: 'Project 3', color: 'bg-green-100', icon: '📁' },
-    { id: 4, name: 'Project 4', color: 'bg-yellow-100', icon: '📁' }
+    { id: 1, name: 'Project 1', color: 'bg-gray-100', iconSrc: '/file-1.png' },
+    { id: 2, name: 'Project 2', color: 'bg-red-100', iconSrc: '/file-2.png' },
+    { id: 3, name: 'Project 3', color: 'bg-green-100', iconSrc: '/file-3.png' },
+    { id: 4, name: 'Project 4', color: 'bg-yellow-100', iconSrc: '/file-4.png' }
   ];
 
   const recentImages = [
@@ -173,7 +173,8 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dashboard-rounded">
+    <div className="min-h-screen bg-transparent dark:bg-transparent dashboard-rounded">
+
       <style>{`
         @keyframes slideInLeft {
           from {
@@ -188,7 +189,7 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
         }
       `}</style>
       {/* Top Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-black text-gray-900 dark:text-white border-b border-gray-200 dark:border-white/20">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-transparent text-gray-900 dark:text-white border-b-0">
         <div className="flex items-center h-16">
           {/* Left side - Logo section (width matches sidebar) */}
           <div className={`${sidebarCollapsed ? 'w-16 px-0 justify-center' : 'w-64 px-4'} py-3 flex items-center ${sidebarCollapsed ? 'space-x-0' : 'space-x-3'} overflow-hidden transition-[width] duration-300`}>
@@ -228,28 +229,12 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
                   </button>
                 </>
               )}
-              {/* No separate toggle icon */}
             </div>
           </div>
 
-          {/* Right side - Search bar and Choose File button */}
-          <div className="flex-1 flex items-center justify-between px-6 py-3">
-            {/* Search bar - starts right after sidebar */}
-            <div className="flex-1 max-w-md">
-              <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:border-transparent focus:ring-gray-400 dark:focus:ring-white/40"
-                />
-              </div>
-            </div>
-
-            {/* Choose File button */}
-            <div className="ml-4">
+          {/* Right side - Choose File only */}
+          <div className="flex-1 flex items-center justify-end px-6 py-3">
+            <div className="ml-0">
               <button 
                 onClick={() => setShowUploadModal(true)}
                 className="bg-gray-900 text-white px-4 py-2 rounded-full font-medium hover:bg-gray-800 transition-colors flex items-center space-x-2"
@@ -397,7 +382,7 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
       )}
       <div className="flex pt-16">
         {/* Sidebar: hidden on mobile, flex on lg+ */}
-        <div className={`hidden lg:flex ${sidebarCollapsed ? 'w-16' : 'w-64'} overflow-hidden transition-[width] duration-300 bg-white dark:bg-black text-gray-900 dark:text-white flex-col min-h-[calc(100vh-4rem)] sticky top-16 self-start`}>
+        <div className={`hidden lg:flex ${sidebarCollapsed ? 'w-16' : 'w-64'} overflow-hidden transition-[width] duration-300 bg-white dark:bg-transparent text-gray-900 dark:text-white flex-col min-h-[calc(100vh-4rem)] sticky top-16 self-start`}>
           <nav className="flex-1 px-3 py-6 space-y-1 overflow-auto">
             {sidebarItems.map((item) => (
               <button
@@ -441,7 +426,7 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
 
               {!sidebarCollapsed && (
                 <button
-                  className="px-3 py-1 text-xs border border-gray-300 text-gray-900 rounded-full hover:bg-gray-100 dark:border-white/30 dark:text-white dark:hover:bg-white/10"
+                  className="px-3 py-1 text-xs border border-gray-300 dark:border-white/30 text-gray-900 dark:text-white rounded-full hover:bg-gray-100 dark:hover:bg-white/10"
                   onClick={() => setUpgradeOpen(true)}
                 >
                   Upgrade
@@ -518,7 +503,7 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
         )}
 
         {/* Main Content */}
-        <div className={`flex-1 bg-gray-50 dark:bg-black text-[14px] text-gray-900 dark:text-white ${activeFilter === 'gallery' ? 'lg:h-[calc(100vh-4rem)] overflow-auto lg:overflow-hidden' : 'pb-28'}`}>
+        <div className={`flex-1 bg-transparent dark:bg-transparent text-[14px] text-gray-900 dark:text-white ${activeFilter === 'gallery' ? 'lg:h-[calc(100vh-4rem)] overflow-auto lg:overflow-hidden' : 'pb-28'}`}>
           {/* Welcome + Projects only on Home */}
           {activeFilter === 'home' && (
           <div className="px-4 lg:px-6 py-4">
@@ -533,8 +518,8 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
                 {projects.map((project) => (
                   <div key={project.id} className="bg-white dark:bg-gray-800 rounded-lg p-2.5 border border-gray-200 dark:border-gray-700 hover:shadow-sm transition-shadow cursor-pointer h-14">
                     <div className="flex items-center justify-between mb-0.5">
-                      <div className={`w-5 h-5 ${project.color} rounded flex items-center justify-center text-xs`}>
-                        {project.icon}
+                      <div className="w-5 h-5 rounded flex items-center justify-center overflow-hidden">
+                        <img src={project.iconSrc} alt={project.name} className="w-5 h-5 object-contain" />
                       </div>
                       <button className="text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100">
                         <MoreVertical className="h-3 w-3" />

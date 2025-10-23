@@ -18,6 +18,8 @@ const ApiConnections = ({ onBack, embedded = false }: ApiConnectionsProps) => {
     id: number; name: string; description: string; logo: string; hasDocumentation?: boolean;
   }>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
+  const [connectedProviders, setConnectedProviders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -25,18 +27,48 @@ const ApiConnections = ({ onBack, embedded = false }: ApiConnectionsProps) => {
       const { data } = await supabase.auth.getUser();
       if (mounted) {
         const ls = (() => { try { return localStorage.getItem('supaimg_email'); } catch { return null; } })();
-        setUserEmail(data.user?.email ?? ls ?? null);
+        const email = data.user?.email ?? ls ?? null;
+        setUserEmail(email);
+        
+        // Load connected providers from Supabase
+        if (data.user?.id) {
+          await loadConnectedProviders(data.user.id);
+        }
       }
     };
     loadUser();
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUserEmail(session?.user?.email ?? null);
+      if (session?.user?.id) {
+        loadConnectedProviders(session.user.id);
+      }
     });
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  const loadConnectedProviders = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_providers')
+        .select('id, user_id, provider_id, config, created_at, providers(id, name, description, icon_url)')
+        .eq('user_id', userId);
+      
+      if (error) {
+        console.error('Error loading providers:', error);
+        setLoading(false);
+        return;
+      }
+      
+      setConnectedProviders(data || []);
+      setLoading(false);
+    } catch (err) {
+      console.error('Failed to load providers:', err);
+      setLoading(false);
+    }
+  };
 
   const effectiveEmail = userEmail ?? (() => { try { return localStorage.getItem('supaimg_email'); } catch { return null; } })() ?? null;
   const effectiveName = effectiveEmail ? (effectiveEmail.split('@')[0] || 'User') : 'User';
@@ -166,17 +198,73 @@ const ApiConnections = ({ onBack, embedded = false }: ApiConnectionsProps) => {
   const handleChange = (k: string, v: string) => setFormValues((p) => ({ ...p, [k]: v }));
   const closeDrawer = () => { setOpenProvider(null); setFormValues({}); };
 
-  const connectedProviders = [
-    {
-      id: 1,
-      name: 'Supaimg Bucket 1.0',
-      description: 'Connect all this that You need',
-      status: 'Connected',
-      access: 'Full Access',
-      note: 'Default API by Supaimg - always available for free.',
-      icon: '🔵'
+  const handleConnect = async () => {
+    if (!openProvider) return;
+    
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user?.id) {
+        alert('Please sign in to connect providers');
+        return;
+      }
+
+      // First, check if provider exists in providers table, if not create it
+      const { data: existingProvider, error: providerCheckError } = await supabase
+        .from('providers')
+        .select('id')
+        .eq('name', openProvider.name)
+        .single();
+
+      let providerId: string;
+
+      if (providerCheckError || !existingProvider) {
+        // Create provider entry
+        const { data: newProvider, error: createError } = await supabase
+          .from('providers')
+          .insert({
+            name: openProvider.name,
+            description: openProvider.description,
+            icon_url: openProvider.logo,
+            key: openProvider.name.toLowerCase().replace(/[^a-z0-9]/g, '_')
+          })
+          .select('id')
+          .single();
+
+        if (createError || !newProvider) {
+          console.error('Error creating provider:', createError);
+          alert('Failed to create provider entry');
+          return;
+        }
+        providerId = newProvider.id;
+      } else {
+        providerId = existingProvider.id;
+      }
+
+      // Save user_provider connection
+      const { error: insertError } = await supabase
+        .from('user_providers')
+        .insert({
+          user_id: userData.user.id,
+          provider_id: providerId,
+          config: formValues
+        });
+
+      if (insertError) {
+        console.error('Error saving connection:', insertError);
+        alert('Failed to save connection');
+        return;
+      }
+
+      // Reload connected providers
+      await loadConnectedProviders(userData.user.id);
+      closeDrawer();
+      alert(`Successfully connected to ${openProvider.name}!`);
+    } catch (err) {
+      console.error('Connection error:', err);
+      alert('An error occurred while connecting');
     }
-  ];
+  };
+
 
   const topProviders = [
     // Major Cloud Providers (Object Storage)
@@ -450,38 +538,42 @@ const ApiConnections = ({ onBack, embedded = false }: ApiConnectionsProps) => {
           </div>
 
           {/* Connected Section */}
+          {connectedProviders.length > 0 && (
           <div className="mb-4 animate-fadeInUp anim-delay-0">
             <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Connected</h2>
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover-lift-md hover-glow">
-              {connectedProviders.map((provider) => (
-                <div key={provider.id} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <img src="/cloudbucket copy.png" alt="Supaimg Bucket" className="w-6 h-6 object-contain" />
+            <div className="space-y-2">
+              {connectedProviders.map((userProvider) => (
+                <div key={userProvider.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover-lift-md hover-glow">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-9 h-9 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center overflow-hidden">
+                        <img src={userProvider.providers?.icon_url || '/cloudbucket copy.png'} alt={userProvider.providers?.name} className="w-6 h-6 object-contain" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900 dark:text-gray-100 text-sm">{userProvider.providers?.name || 'Unknown Provider'}</h3>
+                        <p className="text-[11px] text-gray-600 dark:text-gray-400">{userProvider.providers?.description || 'Connected provider'}</p>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-500 mt-1">Connected on {new Date(userProvider.created_at).toLocaleDateString()}</p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-900 text-sm">{provider.name}</h3>
-                      <p className="text-[11px] text-gray-600">{provider.description}</p>
-                      <p className="text-[11px] text-gray-500 mt-1">{provider.note}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <button className="p-2 text-gray-400 hover:text-gray-600">
-                      <Settings className="h-4 w-4" />
-                    </button>
-                    <div className="flex items-center space-x-2">
-                      <User className="h-4 w-4 text-gray-400" />
-                      <span className="text-xs text-gray-600">{provider.access}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span className="text-xs text-green-600">{provider.status}</span>
+                    <div className="flex items-center space-x-4">
+                      <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        <Settings className="h-4 w-4" />
+                      </button>
+                      <div className="flex items-center space-x-2">
+                        <User className="h-4 w-4 text-gray-400" />
+                        <span className="text-xs text-gray-600 dark:text-gray-400">Full Access</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-xs text-green-600 dark:text-green-400">Connected</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
+          )}
 
           {/* Top Providers Section */}
           <div className="mb-4">
@@ -606,11 +698,7 @@ const ApiConnections = ({ onBack, embedded = false }: ApiConnectionsProps) => {
                 <div className="mt-5 flex items-center justify-end gap-2">
                   <button onClick={closeDrawer} className="px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
                   <button
-                    onClick={() => {
-                      // TODO: wire submit to backend/storage
-                      console.log('Connect', openProvider?.name, formValues);
-                      closeDrawer();
-                    }}
+                    onClick={handleConnect}
                     className="px-3 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800"
                   >
                     Connect

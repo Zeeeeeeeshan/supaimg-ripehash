@@ -44,10 +44,10 @@
     line-height: 1.6;
   }
 
-  /* Global dark mode: black surfaces with white text */
+  /* Global dark mode: Supabase dark theme */
   .dark body {
-    background: #000000;
-    color: #ffffff;
+    background: #1c1c1c;
+    color: #ededed;
   }
 
   /* Theme switch animation */
@@ -154,14 +154,14 @@
 }
 
 /* Global dark-mode overrides (safe fallbacks) */
-.dark .bg-white,
-.dark .bg-gray-50,
-.dark .bg-gray-100,
-.dark .bg-gray-200,
-.dark .bg-gray-800,
-.dark .bg-gray-900 {
-  background-color: #000000 !important;
-}
+  .dark .bg-white,
+  .dark .bg-gray-50,
+  .dark .bg-gray-100,
+  .dark .bg-gray-200,
+  .dark .bg-gray-800,
+  .dark .bg-gray-900 {
+  background-color: #2a2a2a !important;
+  }
 
 .dark .text-gray-900,
 .dark .text-gray-800,
@@ -172,17 +172,22 @@
   color: #ffffff !important;
 }
 
-.dark input,
-.dark select,
-.dark textarea {
-  background-color: #000000 !important;
-  color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.18) !important;
-}
+  .dark input,
+  .dark select,
+  .dark textarea {
+  background-color: #1c1c1c !important;
+  color: #ededed !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  }
 
-.dark ::placeholder {
-  color: #cbd5e1 !important;
-}
+  /* Map tailwind black backgrounds to Supabase dark in dark mode */
+  .dark .bg-black {
+    background-color: #1c1c1c !important;
+  }
+
+  .dark ::placeholder {
+    color: #cbd5e1 !important;
+  }
 
 .dark .border,
 .dark [class*="border-"] {
