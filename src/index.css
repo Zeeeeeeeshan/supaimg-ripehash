@@ -177,7 +177,7 @@
   .dark textarea {
   background-color: #1c1c1c !important;
   color: #ededed !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(117, 117, 117, 0.056) !important;
   }
 
   /* Map tailwind black backgrounds to Supabase dark in dark mode */

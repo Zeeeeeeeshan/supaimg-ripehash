@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { User, Home, Folder, Database, Shield, Settings, Plus, MoreVertical, ChevronRight, X, Menu, Image } from 'lucide-react';
+import { User, Home, Folder, Database, Shield, Settings, Plus, MoreVertical, ChevronRight, X, Menu, Image, CheckCircle2 } from 'lucide-react';
 import Gallery from './Gallery';
 import ApiConnections from './ApiConnections';
 import Projects from './Projects';
 import Auth from './Auth';
 import { supabase } from '../lib/supabaseClient';
+import { getCookie } from '../services/userService';
+import { getUserProjects, type Project } from '../services/projectService';
+import { getUserProviders, type Provider } from '../services/providerService';
+import { createImage } from '../services/imageService';
 
 interface DashboardProps {
   onBack: () => void;
@@ -19,6 +23,16 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [filePreviews, setFilePreviews] = useState<string[]>([]);
+  // New: user projects/providers for upload targeting
+  const [userProjects, setUserProjects] = useState<Project[]>([]);
+  const [userProviders, setUserProviders] = useState<Provider[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [showProviderPicker, setShowProviderPicker] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [listsLoading, setListsLoading] = useState(false);
+  const [toast, setToast] = useState<{ open: boolean; message: string } | null>(null);
   // Context menu state for three-dot options
   const [openMenu, setOpenMenu] = useState<{ type: 'recent' | 'file'; id: string } | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -39,6 +53,41 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
       root.classList.remove('theme-switching');
     }, 320);
   };
+
+  // Load projects/providers when modal opens
+  useEffect(() => {
+    if (!showUploadModal) return;
+    const uidCookie = getCookie('user_id');
+    const uid = uidCookie ? parseInt(uidCookie, 10) : NaN;
+    if (!uid || Number.isNaN(uid)) return;
+    (async () => {
+      try {
+        setListsLoading(true);
+        const [pRes, vRes] = await Promise.all([
+          getUserProjects(uid).catch(() => ({ data: [] as Project[] } as any)),
+          getUserProviders(uid).catch(() => ({ data: [] as Provider[] } as any)),
+        ]);
+        const ps = (pRes?.data as Project[]) || [];
+        const vs = (vRes?.data as Provider[]) || [];
+        setUserProjects(ps);
+        setUserProviders(vs);
+        // defaults
+        setSelectedProject((curr) => curr || (ps[0] ?? null));
+        // prefer aws if present
+        const defaultProv = vs.find((v: Provider) => v.provider_name.toLowerCase() === 'aws') || vs[0] || null;
+        setSelectedProvider((curr) => curr || defaultProv);
+      } catch {}
+      finally { setListsLoading(false); }
+    })();
+  }, [showUploadModal]);
+
+  // Auto-hide toast
+  useEffect(() => {
+    if (toast?.open) {
+      const t = setTimeout(() => setToast(null), 2400);
+      return () => clearTimeout(t);
+    }
+  }, [toast?.open]);
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
 
@@ -87,12 +136,18 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
     { icon: <Shield className="h-5 w-5" />, label: 'Auth', id: 'auth' }
   ];
 
-  const projects = [
-    { id: 1, name: 'Project 1', color: 'bg-gray-100', iconSrc: '/file-1.png' },
-    { id: 2, name: 'Project 2', color: 'bg-red-100', iconSrc: '/file-2.png' },
-    { id: 3, name: 'Project 3', color: 'bg-green-100', iconSrc: '/file-3.png' },
-    { id: 4, name: 'Project 4', color: 'bg-yellow-100', iconSrc: '/file-4.png' }
-  ];
+  // Load projects for Home grid on mount
+  useEffect(() => {
+    const uidCookie = getCookie('user_id');
+    const uid = uidCookie ? parseInt(uidCookie, 10) : NaN;
+    if (!uid || Number.isNaN(uid)) return;
+    (async () => {
+      try {
+        const res = await getUserProjects(uid);
+        setUserProjects(res?.data || []);
+      } catch {}
+    })();
+  }, []);
 
   const recentImages = [
     {
@@ -512,22 +567,32 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
               <p className="text-gray-600 text-sm">Let's have fun uploading images.</p>
             </div>
 
-            {/* Projects Section */}
+            {/* Projects Section (from backend) */}
             <div className="mb-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {projects.map((project) => (
-                  <div key={project.id} className="bg-white dark:bg-gray-800 rounded-lg p-2.5 border border-gray-200 dark:border-gray-700 hover:shadow-sm transition-shadow cursor-pointer h-14">
+                {userProjects.length === 0 ? (
+                  Array.from({ length: 4 }).map((_,i) => (
+                    <div key={i} className="bg-white dark:bg-gray-800 rounded-lg p-2.5 border border-gray-200 dark:border-gray-700 h-14 animate-pulse" />
+                  ))
+                ) : (
+                userProjects.slice(0, 4).map((project) => (
+                  <div key={project.project_id} className="bg-white dark:bg-gray-800 rounded-lg p-2.5 border border-gray-200 dark:border-gray-700 hover:shadow-sm transition-shadow cursor-pointer h-14">
                     <div className="flex items-center justify-between mb-0.5">
                       <div className="w-5 h-5 rounded flex items-center justify-center overflow-hidden">
-                        <img src={project.iconSrc} alt={project.name} className="w-5 h-5 object-contain" />
+                        {project.image_url ? (
+                          <img src={project.image_url} alt={project.project_name} className="w-5 h-5 object-cover" />
+                        ) : (
+                          <img src="/file-1.png" alt="Project" className="w-5 h-5 object-contain" />
+                        )}
                       </div>
                       <button className="text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100">
                         <MoreVertical className="h-3 w-3" />
                       </button>
                     </div>
-                    <h3 className="text-xs font-medium text-gray-900 dark:text-gray-100">{project.name}</h3>
+                    <h3 className="text-xs font-medium text-gray-900 dark:text-gray-100">{project.project_name}</h3>
                   </div>
-                ))}
+                ))
+                )}
               </div>
             </div>
           </div>
@@ -700,6 +765,16 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
         </div>
       </div>
 
+      {/* Toast */}
+      {toast?.open && (
+        <div className="fixed top-4 right-4 z-[60]">
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/20 rounded-lg px-3 py-2 shadow-lg animate-fadeInUp">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <span className="text-sm text-gray-900 dark:text-gray-100">{toast.message}</span>
+          </div>
+        </div>
+      )}
+
       {/* Upload Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -767,9 +842,16 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
               {/* File size info */}
               <p className="text-sm text-gray-500 mb-6">Max file size: 500MB. Supported formats: JPG, PNG, GIF.</p>
 
-              {/* Project and AWS selection */}
+              {/* Project and Provider selection */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-2">
+                  {listsLoading ? (
+                    <>
+                      <div className="px-6 py-3 border border-gray-200 rounded-xl w-64 h-16 animate-pulse bg-gray-50" />
+                      <div className="px-6 py-3 border border-gray-200 rounded-xl w-64 h-16 animate-pulse bg-gray-50" />
+                    </>
+                  ) : (
+                    <>
                   <div className="flex items-center justify-between px-6 py-3 border border-gray-200 rounded-xl w-64 h-16">
                     <div className="flex items-center space-x-3">
                       <div className="w-5 h-5 bg-blue-500 rounded-md flex items-center justify-center">
@@ -778,30 +860,34 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
                         </svg>
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-gray-900">Project Default</div>
+                        <div className="text-sm font-medium text-gray-900">{selectedProject?.project_name || 'Select project'}</div>
                         <div className="text-xs text-gray-500">Active project</div>
                       </div>
                     </div>
-                    <span className="text-sm text-blue-600 cursor-pointer hover:underline">Change</span>
+                    <button onClick={()=>setShowProjectPicker(v=>!v)} className="text-sm text-blue-600 cursor-pointer hover:underline">Change</button>
                   </div>
                   
                   
                   <div className="flex items-center justify-between px-6 py-3 border border-gray-200 rounded-xl w-64 h-16">
                     <div className="flex items-center space-x-3">
                       <div className="w-5 h-5 rounded-md overflow-hidden">
-                        <img 
-                          src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Amazon_Web_Services_Logo.svg/512px-Amazon_Web_Services_Logo.svg.png" 
-                          alt="AWS" 
+                        <img
+                          src={selectedProvider?.provider_name.toLowerCase()==='aws' ? '/aws copy.png' : '/cloudbucket copy.png'}
+                          alt={selectedProvider?.provider_name || 'provider'}
                           className="w-full h-full object-contain"
                         />
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-gray-900">AWS Bucket</div>
-                        <div className="text-xs text-gray-500">supaimg.s3</div>
+                        <div className="text-sm font-medium text-gray-900">{(selectedProvider?.provider_name || 'Provider').toUpperCase()} Bucket</div>
+                        <div className="text-xs text-gray-500">{selectedProvider?.bucket_name || 'Select bucket'}</div>
                       </div>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-gray-400" />
+                    <button onClick={()=>setShowProviderPicker(v=>!v)} aria-label="Change provider">
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </button>
                   </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Upload button */}
@@ -809,22 +895,77 @@ const Dashboard = ({ onNavigateToApi }: DashboardProps) => {
                   className={`px-6 py-2 rounded-lg font-medium transition-colors ${
                     selectedFiles.length > 0 
                       ? 'bg-gray-900 text-white hover:bg-gray-800 cursor-pointer' 
-                      : 'bg-gray-400 text-white cursor-not-allowed'
+                      : 'bg-gray-400 text_white cursor-not-allowed'
                   }`}
                   disabled={selectedFiles.length === 0}
-                  onClick={() => {
-                    if (selectedFiles.length > 0) {
-                      // Handle upload logic here
-                      console.log('Uploading files:', selectedFiles);
+                  onClick={async () => {
+                    if (selectedFiles.length === 0) return;
+                    if (!selectedProvider || !selectedProject) {
+                      setToast({ open: true, message: 'Select project and bucket before uploading' });
+                      return;
+                    }
+                    const uidCookie = getCookie('user_id');
+                    const uid = uidCookie ? parseInt(uidCookie, 10) : NaN;
+                    if (!uid || Number.isNaN(uid)) {
+                      setToast({ open: true, message: 'Sign in required to upload' });
+                      return;
+                    }
+                    try {
+                      setUploading(true);
+                      // Create records for each selected file using the preview URL as image_url
+                      for (let i = 0; i < selectedFiles.length; i++) {
+                        const f = selectedFiles[i];
+                        const url = filePreviews[i] || '';
+                        await createImage({
+                          user_id: uid,
+                          bucket_name: selectedProvider.bucket_name,
+                          image_url: url,
+                          size: f.size,
+                          project_name: selectedProject.project_name,
+                        });
+                      }
+                      setToast({ open: true, message: 'Image uploaded successfully' });
+                    } catch (e) {
+                      console.error(e);
+                      setToast({ open: true, message: 'Upload failed. Please try again.' });
+                    } finally {
+                      setUploading(false);
                       setShowUploadModal(false);
                       setSelectedFiles([]);
                       setFilePreviews([]);
                     }
                   }}
                 >
-                  Upload
+                  {uploading ? 'Uploading…' : 'Upload'}
                 </button>
               </div>
+
+              {/* Pickers */}
+              {showProjectPicker && (
+                <div className="mb-4 border border-gray-200 rounded-lg p-3">
+                  <div className="text-xs font-medium text-gray-700 mb-2">Select project</div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {userProjects.map((p)=> (
+                      <button key={p.project_id} onClick={()=>{setSelectedProject(p); setShowProjectPicker(false);}} className={`px-3 py-2 rounded-lg border text-sm ${selectedProject?.project_id===p.project_id ? 'border-gray-900' : 'border-gray-300'}`}>
+                        {p.project_name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {showProviderPicker && (
+                <div className="mb-4 border border-gray-200 rounded-lg p-3">
+                  <div className="text-xs font-medium text-gray-700 mb-2">Select provider/bucket</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {userProviders.map((v)=> (
+                      <button key={v.provider_id} onClick={()=>{setSelectedProvider(v); setShowProviderPicker(false);}} className={`px-3 py-2 rounded-lg border text-sm text-left ${selectedProvider?.provider_id===v.provider_id ? 'border-gray-900' : 'border-gray-300'}`}>
+                        <div className="font-medium">{v.provider_name.toUpperCase()}</div>
+                        <div className="text-xs text-gray-500">{v.bucket_name}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

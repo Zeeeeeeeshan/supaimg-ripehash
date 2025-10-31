@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Search, Settings, User, Filter, FileText, X, Menu, Home, Folder, Database, Shield, Plus, Image } from 'lucide-react';
 import Gallery from './Gallery';
-import { supabase } from '../lib/supabaseClient';
+import { createProvider, getUserProviders } from '../services/providerService';
+import { getCookie } from '../services/userService';
 
 interface ApiConnectionsProps {
   onBack: () => void;
@@ -20,55 +21,39 @@ const ApiConnections = ({ onBack, embedded = false }: ApiConnectionsProps) => {
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [connectedProviders, setConnectedProviders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [connectLoading, setConnectLoading] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-    const loadUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (mounted) {
-        const ls = (() => { try { return localStorage.getItem('supaimg_email'); } catch { return null; } })();
-        const email = data.user?.email ?? ls ?? null;
-        setUserEmail(email);
-        
-        // Load connected providers from Supabase
-        if (data.user?.id) {
-          await loadConnectedProviders(data.user.id);
-        }
+    const ls = (() => { try { return localStorage.getItem('supaimg_email'); } catch { return null; } })();
+    const cookieEmail = getCookie('gmail');
+    setUserEmail(cookieEmail || ls || null);
+
+    // Load connected providers from backend
+    const uidCookie = getCookie('user_id');
+    const uid = uidCookie ? parseInt(uidCookie, 10) : NaN;
+    if (!uid || Number.isNaN(uid)) return;
+    (async () => {
+      try {
+        const res = await getUserProviders(uid);
+        // Normalize into the display shape used below
+        const mapped = (res?.data || []).map((p) => ({
+          id: p.provider_id,
+          created_at: p.created_at,
+          provider_slug: p.provider_name,
+          providers: {
+            name: providerSlugToDisplay(p.provider_name),
+            description: `${providerSlugToDisplay(p.provider_name)} connected`,
+            icon_url: guessIconForSlug(p.provider_name),
+          }
+        }));
+        setConnectedProviders(mapped);
+      } catch (e) {
+        // ignore
       }
-    };
-    loadUser();
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserEmail(session?.user?.email ?? null);
-      if (session?.user?.id) {
-        loadConnectedProviders(session.user.id);
-      }
-    });
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
+    })();
   }, []);
 
-  const loadConnectedProviders = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('user_providers')
-        .select('id, user_id, provider_id, config, created_at, providers(id, name, description, icon_url)')
-        .eq('user_id', userId);
-      
-      if (error) {
-        console.error('Error loading providers:', error);
-        setLoading(false);
-        return;
-      }
-      
-      setConnectedProviders(data || []);
-      setLoading(false);
-    } catch (err) {
-      console.error('Failed to load providers:', err);
-      setLoading(false);
-    }
-  };
+  // Optionally load connected providers from your backend here in the future
 
   const effectiveEmail = userEmail ?? (() => { try { return localStorage.getItem('supaimg_email'); } catch { return null; } })() ?? null;
   const effectiveName = effectiveEmail ? (effectiveEmail.split('@')[0] || 'User') : 'User';
@@ -80,6 +65,34 @@ const ApiConnections = ({ onBack, embedded = false }: ApiConnectionsProps) => {
     { icon: <Database className="h-5 w-5" />, label: 'Manage API', id: 'api' },
     { icon: <Shield className="h-5 w-5" />, label: 'Auth', id: 'auth' }
   ];
+
+  // Canonical slug for backend based on display name
+  const nameToSlug = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes('amazon') || n.includes('s3')) return 'aws';
+    if (n.includes('cloudflare')) return 'cloudflare';
+    if (n.includes('google')) return 'gcs';
+    if (n.includes('azure')) return 'azure';
+    return n.replace(/[^a-z0-9]+/g, '-');
+  };
+
+  // Helpers to resolve display info from backend slug
+  function providerSlugToDisplay(slug: string) {
+    const s = slug.toLowerCase();
+    if (s === 'aws') return 'Amazon S3';
+    if (s === 'gcs') return 'Google Cloud Storage (GCS)';
+    if (s === 'azure') return 'Microsoft Azure Blob Storage';
+    if (s === 'cloudflare') return 'Cloudflare R2';
+    return slug.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+  }
+  function guessIconForSlug(slug: string) {
+    const s = slug.toLowerCase();
+    if (s === 'aws') return 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/amazons3.svg';
+    if (s === 'gcs') return 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/googlecloud.svg';
+    if (s === 'azure') return 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/microsoftazure.svg';
+    if (s === 'cloudflare') return 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/cloudflare.svg';
+    return '/cloudbucket copy.png';
+  }
 
   // Field schema per provider name (fallback to generic S3-style fields)
   const getFieldsForProvider = (name: string) => {
@@ -200,68 +213,63 @@ const ApiConnections = ({ onBack, embedded = false }: ApiConnectionsProps) => {
 
   const handleConnect = async () => {
     if (!openProvider) return;
-    
+
+    // Read user_id from cookie (set during Login)
+    const uidCookie = getCookie('user_id');
+    const userId = uidCookie ? parseInt(uidCookie, 10) : NaN;
+    if (!userId || Number.isNaN(userId)) {
+      alert('Please sign in to connect providers');
+      return;
+    }
+
+    // Map provider name to backend slug (uses global helper)
+
+    // Extract fields from the form
+    const accessKey = formValues.accessKeyId || formValues.accessKey || formValues.apiKey || '';
+    const secretKey = formValues.secretAccessKey || formValues.secretKey || formValues.apiSecret || '';
+    const region = formValues.region || '';
+    const bucket = formValues.bucket || formValues.container || formValues.storageZone || '';
+
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user?.id) {
-        alert('Please sign in to connect providers');
-        return;
-      }
+      setConnectLoading(true);
+      const payload = {
+        user_id: userId,
+        provider_name: nameToSlug(openProvider.name),
+        bucket_name: bucket,
+        region,
+        access_key: accessKey,
+        secret_key_id: secretKey,
+      };
 
-      // First, check if provider exists in providers table, if not create it
-      const { data: existingProvider, error: providerCheckError } = await supabase
-        .from('providers')
-        .select('id')
-        .eq('name', openProvider.name)
-        .single();
-
-      let providerId: string;
-
-      if (providerCheckError || !existingProvider) {
-        // Create provider entry
-        const { data: newProvider, error: createError } = await supabase
-          .from('providers')
-          .insert({
-            name: openProvider.name,
-            description: openProvider.description,
-            icon_url: openProvider.logo,
-            key: openProvider.name.toLowerCase().replace(/[^a-z0-9]/g, '_')
-          })
-          .select('id')
-          .single();
-
-        if (createError || !newProvider) {
-          console.error('Error creating provider:', createError);
-          alert('Failed to create provider entry');
-          return;
-        }
-        providerId = newProvider.id;
+      const res = await createProvider(payload);
+      if (res?.success) {
+        // Optimistically add to connected list
+        setConnectedProviders((prev) => ([
+          ...prev,
+          {
+            id: res.data?.provider_id ?? Math.random(),
+            created_at: res.data?.created_at ?? new Date().toISOString(),
+            provider_slug: nameToSlug(openProvider.name),
+            providers: {
+              name: openProvider.name,
+              description: `${openProvider.name} connected`,
+              icon_url: openProvider.logo,
+            }
+          }
+        ]));
+        // Small UX delay so user can see skeleton transition
+        setTimeout(() => {
+          alert('Provider created successfully');
+          closeDrawer();
+        }, 200);
       } else {
-        providerId = existingProvider.id;
+        alert(res?.message || 'Failed to create provider');
       }
-
-      // Save user_provider connection
-      const { error: insertError } = await supabase
-        .from('user_providers')
-        .insert({
-          user_id: userData.user.id,
-          provider_id: providerId,
-          config: formValues
-        });
-
-      if (insertError) {
-        console.error('Error saving connection:', insertError);
-        alert('Failed to save connection');
-        return;
-      }
-
-      // Reload connected providers
-      await loadConnectedProviders(userData.user.id);
-      closeDrawer();
-      alert(`Successfully connected to ${openProvider.name}!`);
-    } catch (err) {
-      console.error('Connection error:', err);
-      alert('An error occurred while connecting');
+    } catch (e: any) {
+      console.error('Create provider error:', e);
+      alert(e?.message || 'Failed to create provider');
+    } finally {
+      setConnectLoading(false);
     }
   };
 
@@ -538,10 +546,28 @@ const ApiConnections = ({ onBack, embedded = false }: ApiConnectionsProps) => {
           </div>
 
           {/* Connected Section */}
-          {connectedProviders.length > 0 && (
+          {(connectedProviders.length > 0 || connectLoading) && (
           <div className="mb-4 animate-fadeInUp anim-delay-0">
             <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Connected</h2>
             <div className="space-y-2">
+              {connectLoading && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                  <div className="flex items-center justify-between animate-pulse">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-9 h-9 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+                      <div>
+                        <div className="h-3 w-36 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+                        <div className="h-2 w-56 bg-gray-200 dark:bg-gray-700 rounded" />
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                      <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+                      <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
+                    </div>
+                  </div>
+                </div>
+              )}
               {connectedProviders.map((userProvider) => (
                 <div key={userProvider.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover-lift-md hover-glow">
                   <div className="flex items-center justify-between">
@@ -586,37 +612,39 @@ const ApiConnections = ({ onBack, embedded = false }: ApiConnectionsProps) => {
             </div>
             
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-              {topProviders.map((provider, idx) => (
+              {(() => {
+                const connectedSet = new Set(
+                  connectedProviders.map((p:any) => p.provider_slug || nameToSlug(p.providers?.name || ''))
+                );
+                const filtered = topProviders.filter(tp => !connectedSet.has(nameToSlug(tp.name)));
+                return filtered.map((provider, idx) => (
                 <div
                   key={provider.id}
-                  className={`p-4 flex items-center justify-between animate-fadeInUp ${idx !== topProviders.length - 1 ? 'border-b border-gray-200' : ''}`}
-                  style={{ animationDelay: `${idx * 40}ms` }}
+                  className={`flex items-center justify-between px-4 py-3 ${idx !== filtered.length - 1 ? 'border-b border-gray-200 dark:border-gray-700' : ''}`}
                 >
                   <div className="flex items-center space-x-4">
                     <div className="w-9 h-9 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
-                      <img src={provider.logo} alt={provider.name} className="w-7 h-7 object-contain dark:invert dark:opacity-90" />
+                      <img src={provider.logo} alt={provider.name} className="w-6 h-6 object-contain" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-gray-900 text-sm animate-fadeInUp">{provider.name}</h3>
-                      <p className="text-[11px] text-gray-600 animate-fadeInUp anim-delay-1">{provider.description}</p>
+                      <h3 className="font-medium text-gray-900 dark:text-gray-100 text-sm">{provider.name}</h3>
+                      <p className="text-[11px] text-gray-600 dark:text-gray-400">{provider.description}</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
-                    {provider.hasDocumentation && (
-                      <button className="flex items-center space-x-2 px-3 py-1.5 border border-gray-300 dark:border-white/30 rounded-lg text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-white/10 text-xs hover-lift-md">
-                        <FileText className="h-4 w-4" />
-                        <span>View Docs</span>
-                      </button>
-                    )}
+                    <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 text-xs border border-gray-200 dark:border-gray-700">
+                      <FileText className="h-3.5 w-3.5" /> View Docs
+                    </button>
                     <button
-                      className="px-3.5 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors text-xs hover-lift-md"
-                      onClick={() => { setOpenProvider(provider); setFormValues({}); }}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-800 text-xs"
+                      onClick={() => setOpenProvider({ id: provider.id, name: provider.name, description: provider.description, logo: provider.logo, hasDocumentation: provider.hasDocumentation })}
                     >
-                      {provider.hasDocumentation ? 'Connect Now' : 'Connect'}
+                      Connect Now
                     </button>
                   </div>
                 </div>
-              ))}
+                ));
+              })()}
             </div>
           </div>
 
